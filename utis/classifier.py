@@ -4,18 +4,22 @@ from time import time
 from typing import Optional, Iterable
 
 import numpy as np
+import pandas as pd
 import seaborn as sns
+from IPython.core.display_functions import display
 from matplotlib import pyplot as plt
 from skimage.color import rgb2hsv
 from skimage.feature import hog
 from skimage.io import imread
 from skimage.transform import resize
 from sklearn.ensemble import RandomForestClassifier
-from sklearn.metrics import confusion_matrix, accuracy_score, balanced_accuracy_score
+from sklearn.metrics import confusion_matrix, balanced_accuracy_score, precision_recall_fscore_support, \
+    classification_report
 from sklearn.model_selection import GridSearchCV
 
 
 __CPUS = cpu_count()
+pd.set_option('display.max_rows', None)
 
 
 def __read_images_from_path(path: str, slice_image_shape: tuple) -> tuple[np.ndarray, np.ndarray]:
@@ -52,6 +56,29 @@ def __get_model_basic_config(model_class: callable) -> dict:
         return {'n_jobs': __CPUS // 2}
 
     return {}
+
+
+def __calculate_sensitivity_and_specificity_per_class(y_true: np.ndarray, y_pred: np.ndarray) -> pd.DataFrame:
+    results = []
+    classes = np.unique(y_true)
+
+    for class_id in classes:
+        precision, recall, _, _ = precision_recall_fscore_support(
+            y_true=y_true == class_id,
+            y_pred=y_pred == class_id,
+            pos_label=True,
+            average=None
+        )
+
+        results.append([class_id, recall[0], recall[1]])
+
+    return pd.DataFrame(results, columns=['class', 'sensitivity', 'specificity'])
+
+
+def __get_basic_metrics(data: pd.DataFrame, test_data: np.ndarray, pred_data: np.ndarray) -> pd.DataFrame:
+    return data[-3:].drop(columns=['support']).T.assign(
+        temp=balanced_accuracy_score(y_true=test_data, y_pred=pred_data, adjusted=True)
+    ).rename(columns={'temp': 'balanced adjusted accuracy'}).T
 
 
 def get_hog_descriptors(images: Iterable, hog_params: dict) -> np.ndarray:
@@ -102,13 +129,24 @@ def get_trained_model(
         return model_obj
 
 
-def evaluate_model(model: object, x_test: np.ndarray, y_test: np.ndarray, show_cm: bool = False) -> None:
+def evaluate_model(model: object, x_test: np.ndarray, y_test: np.ndarray, show_details: bool = False) -> None:
     y_pred = model.predict(x_test)
 
-    print(f'Acc Score = {accuracy_score(y_test, y_pred)}')
-    print(f'Bal Acc Score = {balanced_accuracy_score(y_test, y_pred, adjusted=True)}')
+    result_df = pd.DataFrame(classification_report(y_true=y_test, y_pred=y_pred, output_dict=True, zero_division=1)).T
 
-    if show_cm:
-        cm = confusion_matrix(y_test, y_pred)
-        sns.heatmap(cm)
-        plt.show()
+    basic_metrics = __get_basic_metrics(data=result_df, test_data=y_test, pred_data=y_pred)
+    cm = confusion_matrix(y_true=y_test, y_pred=y_pred)
+
+    display(basic_metrics)
+    sns.heatmap(cm)
+    plt.show()
+
+    if show_details:
+        temp_df = __calculate_sensitivity_and_specificity_per_class(y_true=y_test, y_pred=y_pred)
+        result_df = result_df.T.drop(columns=['accuracy', 'macro avg', 'weighted avg']).T
+
+        result_df = result_df.assign(
+            sensitivity=temp_df['sensitivity'].tolist(),
+            specificity=temp_df['specificity'].tolist()
+        )
+        display(result_df)

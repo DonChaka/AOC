@@ -1,3 +1,4 @@
+from sklearn.metrics import jaccard_score
 from collections import defaultdict
 from itertools import product
 from os import listdir
@@ -123,6 +124,47 @@ def add_rects_on_images(rects_data: dict, home_path: str, source_image_shape: tu
         result_append({'file': filename, 'img': image})
 
     return result
+
+
+def create_rect_mask_for_images(rects_data: dict, source_image_shape: tuple) -> list:
+    result = []
+    result_append = result.append
+
+    for i, (filename, all_color_rects) in enumerate(rects_data.items()):
+        image = np.ones(source_image_shape)
+
+        for color_space, rects_list in all_color_rects.items():
+            for rect in rects_list:
+                cv2.rectangle(
+                    image,
+                    (rect['x'], rect['y']),
+                    (rect['x'] + rect['w'], rect['y'] + rect['h']),
+                    0,
+                    -1
+                )
+
+        result_append({'file': filename, 'img': image})
+
+    return result
+
+
+def calculate_jaccard_score(home_path: str, source_image_shape: tuple, detected_rects: list) -> float:
+    results = []
+    results_append = results.append
+
+    for obj in detected_rects:
+        test_img = np.where(resize(
+            image=imread(join(home_path, obj['file']), as_gray=True),
+            output_shape=source_image_shape,
+            preserve_range=True
+        ).astype(np.uint8) < 0.5, 0, 1)
+
+        results_append(jaccard_score(
+            y_true=test_img.ravel(),
+            y_pred=obj['img'].ravel()
+        ))
+
+    return np.array(results).mean()
 
 
 def plot_images(images: list) -> None:
