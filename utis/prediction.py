@@ -10,7 +10,7 @@ from utis.classifier import get_hog_descriptors
 from utis.colours import COLOR
 
 
-def __add_rects_with_pred_on_image(
+def add_rects_with_pred_on_image(
         image: np.ndarray, color_rects_data: dict, models_dict: dict, slice_image_shape: tuple, rect_thickness: int,
         font_size: int, font_thickness: int, hog_params: dict
 ) -> None:
@@ -59,7 +59,7 @@ def add_rects_with_pred_on_images(
             preserve_range=True
         ).astype(np.uint8)
 
-        __add_rects_with_pred_on_image(
+        add_rects_with_pred_on_image(
             image=image,
             color_rects_data=all_color_rects,
             models_dict=models_dict,
