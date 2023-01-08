@@ -10,10 +10,10 @@ from utis.classifier import get_hog_descriptors
 from utis.colours import COLOR
 
 
-def add_rects_with_pred_on_image(
-        image: np.ndarray, color_rects_data: dict, model_obj: object, slice_image_shape: tuple, rect_thickness: int,
+def __add_rects_with_pred_on_image(
+        image: np.ndarray, color_rects_data: dict, models_dict: dict, slice_image_shape: tuple, rect_thickness: int,
         font_size: int, font_thickness: int, hog_params: dict
-) -> np.ndarray:
+) -> None:
     for color_space, rects_list in color_rects_data.items():
         for rect in rects_list:
             sign = resize(
@@ -23,7 +23,7 @@ def add_rects_with_pred_on_image(
             ).astype(np.uint8)
 
             a = get_hog_descriptors(images=[rgb2hsv(sign)], hog_params=hog_params)
-            pred = model_obj.predict(a)
+            pred = models_dict[color_space].predict(a)
 
             cv2.rectangle(
                 image,
@@ -46,7 +46,7 @@ def add_rects_with_pred_on_image(
 
 
 def add_rects_with_pred_on_images(
-        rects_data: dict, model_obj: object, source_image_shape: tuple, home_path: str, slice_image_shape: tuple,
+        rects_data: dict, models_dict: dict, source_image_shape: tuple, home_path: str, slice_image_shape: tuple,
         rect_thickness: int, font_size: int, font_thickness: int, hog_params: dict
 ) -> list:
     result = []
@@ -59,10 +59,10 @@ def add_rects_with_pred_on_images(
             preserve_range=True
         ).astype(np.uint8)
 
-        add_rects_with_pred_on_image(
+        __add_rects_with_pred_on_image(
             image=image,
             color_rects_data=all_color_rects,
-            model_obj=model_obj,
+            models_dict=models_dict,
             slice_image_shape=slice_image_shape,
             rect_thickness=rect_thickness,
             font_size=font_size,

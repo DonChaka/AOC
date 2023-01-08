@@ -40,8 +40,8 @@ def match_rect_to_contour(
     for color_space, mask in img_masks.items():
         contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
 
-        for base, contour in product(base_contours.values(), contours):
-            distance = cv2.matchShapes(base, contour, cv2.CONTOURS_MATCH_I3, 0)
+        for base_shape, contour in product(base_contours, contours):
+            distance = cv2.matchShapes(base_contours[base_shape], contour, cv2.CONTOURS_MATCH_I3, 0)
 
             if __is_contour_match(distance=distance, min_match_distance=sign_min_match_distance):
                 x_pos, y_pos, width, height = __get_rect_dims(
@@ -51,7 +51,14 @@ def match_rect_to_contour(
                 )
 
                 if width > rect_min_size and height > rect_min_size:
-                    result[color_space].extend([{'x': x_pos, 'y': y_pos, 'w': width, 'h': height}])
+                    result[color_space].extend([{
+                        'x': x_pos,
+                        'y': y_pos,
+                        'w': width,
+                        'h': height,
+                        'color': color_space,
+                        'shape': base_shape
+                    }])
 
     return dict(result)
 
