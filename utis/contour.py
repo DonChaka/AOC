@@ -23,15 +23,15 @@ def __get_rect_dims(contour: np.ndarray, x_offset: int = 0, y_offset: int = 0) -
     return x - x_offset, y - y_offset, w + x_offset, h + y_offset
 
 
-def __match_rect_to_contour(
-        home: str, file_name: str, source_image_shape: tuple, base_contours: dict, rect_offset: int, rect_min_size: int,
+def match_rect_to_contour(
+        image: np.ndarray, source_image_shape: tuple, base_contours: dict, rect_offset: int, rect_min_size: int,
         sign_min_match_distance: float
 ) -> dict:
     result = defaultdict(list)
 
     img_masks = get_mask_dict_for_img(
         img=resize(
-            image=imread(join(home, file_name)),
+            image=image,
             output_shape=source_image_shape,
             preserve_range=True
         ).astype(np.uint8)
@@ -91,9 +91,8 @@ def get_rects_for_images(
     image_rects = {}
 
     for filename in listdir(home):
-        image_rects[filename] = __match_rect_to_contour(
-            home=home,
-            file_name=filename,
+        image_rects[filename] = match_rect_to_contour(
+            image=imread(join(home, filename)),
             source_image_shape=source_image_shape,
             base_contours=base_contours,
             rect_offset=rect_offset,
