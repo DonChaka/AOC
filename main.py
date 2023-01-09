@@ -1,63 +1,58 @@
-from os.path import join
 from time import time
 
 import cv2
-from sklearn.ensemble import RandomForestClassifier
 
-from utis.classifier import load_dataset, get_trained_model
-from utis.contour import match_rect_to_contour, get_base_contours
-from utis.prediction import add_rects_with_pred_on_image
+from utils.globals import *
+from utils.classifier import load_dataset, get_trained_model
+from utils.contour import match_rect_to_contour, get_base_contours
+from utils.prediction import add_rects_with_pred_on_image
 
-OUTPUT_SOURCE_IMAGE_SHAPE = (900, 1200, 3)
-SIGN_RECTANGLE_OFFSET = 5
-SIGN_MIN_SIZE = 10
-SIGN_MATCH_DISTANCE_EPSILON = 0.05
-RECT_THICKNESS = 2
-DATASET_PATH = join('Images', 'polishDataset')
-HOG_PARAMS = {
-    'orientation': 8,
-    'pixels_per_cell': (5, 5),
-    'cells_per_block': (8, 8)
-}
-OUTPUT_SLICE_IMAGE_SHAPE = (40, 40, 3)
-CLASSIFIER_MODEL_CLASS = RandomForestClassifier
-CLASSIFIER_SEARCH_BEST_MODEL = False
-CLASSIFIER_PARAMS = {
-    'n_estimators': 50,
-    'criterion': 'entropy',
-    'max_depth': 10,
-    'min_samples_split': 2
-}
-FONT_SIZE = 1
-FONT_THICKNESS = 2
 
-base_contours = get_base_contours(join('Images', 'Shapes'))
+COLOR_SETS = True
+
 cap = cv2.VideoCapture(join('videos', 'example_day.mp4'))
 
 if not cap.isOpened():
     print('Failed')
     exit(1)
 
+
+train_test_sets = {
+    'red': load_dataset(
+        path=COLORED_DATASET_PATHS['red'],
+        hog_params=HOG_PARAMS,
+        slice_image_shape=OUTPUT_SLICE_IMAGE_SHAPE
+    ),
+    'blue': load_dataset(
+        path=COLORED_DATASET_PATHS['blue'],
+        hog_params=HOG_PARAMS,
+        slice_image_shape=OUTPUT_SLICE_IMAGE_SHAPE
+    ),
+    'yellow': load_dataset(
+        path=COLORED_DATASET_PATHS['yellow'],
+        hog_params=HOG_PARAMS,
+        slice_image_shape=OUTPUT_SLICE_IMAGE_SHAPE
+    )
+}
+
+models = {}
+
+for color_space in COLORED_DATASET_PATHS:
+    models[color_space] = get_trained_model(
+        x_train_data=train_test_sets[color_space][0],
+        y_train_data=train_test_sets[color_space][1],
+        model_class=CLASSIFIER_MODEL_CLASS,
+        model_params=CLASSIFIER_PARAMS,
+        model_search=CLASSIFIER_SEARCH_BEST_MODEL,
+        search_params=CLASSIFIER_SEARCH_BEST_MODEL_PARAMS
+    )
+
+base_contours = get_base_contours(join('Images', 'Shapes'))
 match_rect_times = []
 match_rect_times_append = match_rect_times.append
 
 add_rect_to_image_times = []
 add_rect_to_image_times_append = add_rect_to_image_times.append
-
-
-x_train, y_train, _, _ = load_dataset(
-    path=DATASET_PATH,
-    hog_params=HOG_PARAMS,
-    slice_image_shape=OUTPUT_SLICE_IMAGE_SHAPE
-)
-
-model = get_trained_model(
-    x_train_data=x_train,
-    y_train_data=y_train,
-    model_class=CLASSIFIER_MODEL_CLASS,
-    model_params=CLASSIFIER_PARAMS,
-    model_search=CLASSIFIER_SEARCH_BEST_MODEL
-)
 
 while cap.isOpened():
     ret, frame = cap.read()
@@ -79,9 +74,9 @@ while cap.isOpened():
         add_rects_with_pred_on_image(
             image=frame,
             color_rects_data=rects,
-            model_obj=model,
+            models_dict=models,
             slice_image_shape=OUTPUT_SLICE_IMAGE_SHAPE,
-            rect_thickness=RECT_THICKNESS,
+            rect_thickness=SIGN_RECTANGLE_THICKNESS,
             font_size=FONT_SIZE,
             font_thickness=FONT_THICKNESS,
             hog_params=HOG_PARAMS
