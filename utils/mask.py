@@ -1,6 +1,7 @@
 from os import listdir
 from os.path import join
 
+import cv2
 import numpy as np
 from matplotlib import pyplot as plt
 from skimage.color import rgb2hsv
@@ -8,66 +9,75 @@ from skimage.io import imread
 from skimage.transform import resize
 
 
-def __p2f(value: int) -> float:
-    return value / 100
+def __histogram_equalization(data: np.ndarray) -> np.ndarray:
+    if len(data.shape) > 2 and data.shape[2] > 1:
+        red, green, blue = cv2.split(data)
+
+        out_red = cv2.equalizeHist(red)
+        out_green = cv2.equalizeHist(green)
+        out_blue = cv2.equalizeHist(blue)
+
+        return cv2.merge((out_red, out_green, out_blue))
+
+    return cv2.equalizeHist(data)
 
 
-def __make_image_binary(data: np.ndarray) -> np.ndarray:
-    data = np.sum(data, axis=2, keepdims=False, dtype=np.uint8)
-    data[data > 0] = 1
-    return data
+def __get_red_mask(data: np.ndarray) -> np.ndarray:
+    red_low_boundary = np.array([310 / 360, 55 / 100, 55 / 100])
+    red_high_boundary = np.array([360 / 360, 100 / 100, 100 / 100])
+
+    red_mask = cv2.inRange(data, red_low_boundary, red_high_boundary)
+
+    red_low_boundary = np.array([0 / 360, 50 / 100, 55 / 100])
+    red_high_boundary = np.array([15 / 360, 100 / 100, 100 / 100])
+
+    return cv2.inRange(data, red_low_boundary, red_high_boundary) | red_mask
 
 
-def __get_image_mask(data: np.ndarray, idxes: np.ndarray) -> np.ndarray:
-    result = np.zeros_like(data)
-    result[idxes] = data[idxes]
-    return result
+def __get_blue_mask(data: np.ndarray) -> np.ndarray:
+    blue_low_boundary = np.array([195 / 360, 40 / 100, 55 / 100])
+    blue_high_boundary = np.array([220 / 360, 100 / 100, 100 / 100])
+
+    return cv2.inRange(data, blue_low_boundary, blue_high_boundary)
 
 
-def __get_red_mask_rules(data: np.ndarray) -> tuple:
-    hue = ((0 <= data[:, :, 0]) & (data[:, :, 0] <= 10 / 360)) | ((300 / 360 <= data[:, :, 0]) & (data[:, :, 0] <= 1))
-    sat = (__p2f(25) <= data[:, :, 1]) & (data[:, :, 1] <= __p2f(250))
-    value = (__p2f(30) < data[:, :, 2]) & (data[:, :, 2] <= __p2f(200))
-    return hue, sat, value
+def __get_yellow_mask(data: np.ndarray) -> np.ndarray:
+    yellow_low_boundary = np.array([35 / 360, 60 / 100, 60 / 100])
+    yellow_high_boundary = np.array([65 / 360, 100 / 100, 100 / 100])
+
+    return cv2.inRange(data, yellow_low_boundary, yellow_high_boundary)
 
 
-def __get_blue_mask_rules(data: np.ndarray) -> tuple:
-    hue = (190 / 360 <= data[:, :, 0]) & (data[:, :, 0] <= 260 / 360)
-    sat = (__p2f(20) <= data[:, :, 1]) & (data[:, :, 1] <= __p2f(250))
-    value = (__p2f(35) < data[:, :, 2]) & (data[:, :, 2] <= __p2f(128))
-    return hue, sat, value
-
-
-def __get_yellow_mask_rules(data: np.ndarray) -> tuple:
-    hue = (40 / 360 <= data[:, :, 0]) & (data[:, :, 0] <= 65 / 360)
-    sat = (__p2f(60) <= data[:, :, 1]) & (data[:, :, 1] <= __p2f(250))
-    value = (__p2f(60) < data[:, :, 2]) & (data[:, :, 2] <= __p2f(128))
-    return hue, sat, value
+def __get_mask_per_color_space() -> dict:
+    return {
+        'red': __get_red_mask,
+        'yellow': __get_yellow_mask,
+        'blue': __get_blue_mask
+    }
 
 
 def __get_mask(img: np.ndarray, rule: str) -> np.ndarray:
-    hue, sat, value = __get_mask_rules().get(rule)(data=rgb2hsv(img))
-    return __make_image_binary(
-        data=__get_image_mask(data=img, idxes=hue & sat & value)
-    )
+    return __get_mask_per_color_space().get(rule)(data=img)
 
 
-def __display_images_masks(image: np.ndarray, filename: str) -> None:
+def __display_images_masks(img: np.ndarray, file_name: str) -> None:
     fig, ((ax0, ax1), (ax2, ax3)) = plt.subplots(ncols=2, nrows=2, figsize=(20, 15))
 
-    ax0.imshow(image)
-    ax0.set_title(filename)
+    ax0.imshow(img)
+    ax0.set_title(file_name)
     ax0.axis('off')
 
-    ax1.imshow(__get_mask(img=image, rule='red'), cmap=plt.cm.gray)
+    hsv_image = rgb2hsv(__histogram_equalization(data=img))
+
+    ax1.imshow(__get_mask(img=hsv_image, rule='red'), cmap=plt.cm.gray)
     ax1.set_title('red channel')
     ax1.axis('off')
 
-    ax2.imshow(__get_mask(img=image, rule='blue'), cmap=plt.cm.gray)
+    ax2.imshow(__get_mask(img=hsv_image, rule='blue'), cmap=plt.cm.gray)
     ax2.set_title('blue channel')
     ax2.axis('off')
 
-    ax3.imshow(__get_mask(img=image, rule='yellow'), cmap=plt.cm.gray)
+    ax3.imshow(__get_mask(img=hsv_image, rule='yellow'), cmap=plt.cm.gray)
     ax3.set_title('yellow channel')
     ax3.axis('off')
 
@@ -75,14 +85,16 @@ def __display_images_masks(image: np.ndarray, filename: str) -> None:
     plt.show()
 
 
-def __display_merged_masks(image: np.ndarray, filename: str) -> None:
+def __display_merged_masks(img: np.ndarray, file_name: str) -> None:
     fig, (ax0, ax1) = plt.subplots(ncols=2, nrows=1, figsize=(20, 15))
 
-    ax0.imshow(image)
-    ax0.set_title(filename)
+    ax0.imshow(img)
+    ax0.set_title(file_name)
     ax0.axis('off')
 
-    mask = __get_mask(img=image, rule='red') | __get_mask(img=image, rule='blue') | __get_mask(img=image, rule='yellow')
+    hsv_image = rgb2hsv(__histogram_equalization(data=img))
+    mask = __get_mask(img=hsv_image, rule='red') | __get_mask(img=hsv_image, rule='blue') | \
+           __get_mask(img=hsv_image, rule='yellow')
 
     ax1.imshow(mask, cmap=plt.cm.gray)
     ax1.set_title('merged mask')
@@ -92,41 +104,33 @@ def __display_merged_masks(image: np.ndarray, filename: str) -> None:
     plt.show()
 
 
-def __get_mask_rules() -> dict:
-    return {
-        'red': __get_red_mask_rules,
-        'yellow': __get_yellow_mask_rules,
-        'blue': __get_blue_mask_rules
-    }
-
-
 def plot_all_mask_per_image(home_path: str, source_image_shape: tuple) -> None:
     for file in listdir(home_path):
         __display_images_masks(
-            image=resize(
+            img=resize(
                 image=imread(join(home_path, file)),
                 output_shape=source_image_shape,
                 preserve_range=True
             ).astype(np.uint8),
-            filename=file
+            file_name=file
         )
 
 
 def plot_merged_mask_per_image(home_path: str, source_image_shape: tuple) -> None:
     for file in listdir(home_path):
         __display_merged_masks(
-            image=resize(
+            img=resize(
                 image=imread(join(home_path, file)),
                 output_shape=source_image_shape,
                 preserve_range=True
             ).astype(np.uint8),
-            filename=file
+            file_name=file
         )
 
 
-def get_mask_dict_for_img(img: np.ndarray) -> dict:
+def get_mask_dict(img: np.ndarray) -> dict:
     return {
-        'red': __get_mask(img=img, rule='red').astype(np.uint8),
-        'yellow': __get_mask(img=img, rule='yellow').astype(np.uint8),
-        'blue': __get_mask(img=img, rule='blue').astype(np.uint8)
+        'red': __get_mask(img=img, rule='red'),
+        'blue': __get_mask(img=img, rule='blue'),
+        'yellow': __get_mask(img=img, rule='yellow')
     }
