@@ -1,17 +1,13 @@
-from skimage import exposure
-from skimage.feature import hog
 import numpy as np
-import matplotlib.pyplot as plt
+from matplotlib import pyplot as plt
+from skimage.exposure import rescale_intensity
+from skimage.feature import hog
 from skimage.transform import resize
-from skimage.io import imread
-from os.path import join
 
 
-def __get_hog_of_image(
-        image: np.ndarray, orientation: int, pixels_per_cell: tuple, cells_per_block: tuple
-) -> np.ndarray:
+def __get_hog_of_image(img: np.ndarray, orientation: int, pixels_per_cell: tuple, cells_per_block: tuple) -> np.ndarray:
     return hog(
-        image=image,
+        image=img,
         orientations=orientation,
         pixels_per_cell=pixels_per_cell,
         cells_per_block=cells_per_block,
@@ -20,39 +16,29 @@ def __get_hog_of_image(
     )
 
 
-def display_hogs_of_rects(
-        rects: dict, source_image_shape: tuple, home_path: str, slice_image_shape: str, hog_params: dict
-):
-    for filename in rects:
-        image = resize(
-            image=imread(join(home_path, filename)),
-            output_shape=source_image_shape,
-            preserve_range=True
-        ).astype(np.uint8)
+def display_hogs_of_rects(images_with_rects_data: tuple, slice_image_shape: str, hog_params: dict) -> None:
+    for rect_data in images_with_rects_data:
+        plt.imshow(rect_data['img'])
+        plt.title(rect_data['file_name'])
 
-        plt.imshow(image)
-        plt.show()
+        for rect in rect_data['rects']:
+            sign = resize(
+                image=rect_data['img'][rect[1]:rect[1] + rect[3], rect[0]:rect[0] + rect[2]],
+                output_shape=slice_image_shape,
+                preserve_range=True
+            ).astype(np.uint8)
 
-        for color_base in rects[filename]:
-            for rect in rects[filename][color_base]:
-                sign = resize(
-                    image=image[rect['y']:rect['y'] + rect['h'], rect['x']:rect['x'] + rect['w']],
-                    output_shape=slice_image_shape,
-                    preserve_range=True
-                ).astype(np.uint8)
+            fd, hog_image = __get_hog_of_image(sign, **dict(hog_params.items()))
+            # Rescale histogram for better display
+            hog_image_rescaled = rescale_intensity(hog_image, in_range=(0, 10))
 
-                fd, hog_image = __get_hog_of_image(sign, **dict(hog_params.items()))
+            _, (ax1, ax2) = plt.subplots(1, 2, figsize=(8, 4), sharex=True, sharey=True)
 
-                fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(8, 4), sharex=True, sharey=True)
+            ax1.axis('off')
+            ax1.imshow(sign)
+            ax1.set_title(f'Slice input image of {rect_data["file_name"]}')
 
-                ax1.axis('off')
-                ax1.imshow(sign)
-                ax1.set_title('Input image')
-
-                # Rescale histogram for better display
-                hog_image_rescaled = exposure.rescale_intensity(hog_image, in_range=(0, 10))
-
-                ax2.axis('off')
-                ax2.imshow(hog_image_rescaled, cmap=plt.cm.gray)
-                ax2.set_title('Histogram of Oriented Gradients')
-                plt.show()
+            ax2.axis('off')
+            ax2.imshow(hog_image_rescaled, cmap=plt.cm.gray)
+            ax2.set_title('Histogram of Oriented Gradients')
+            plt.show()
