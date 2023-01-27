@@ -2,20 +2,10 @@ import cv2
 
 from utils.classifier import load_model
 from utils.globals import *
-from utils.contour import match_rects_to_images, add_rects_on_image
+from utils.contour import match_rects_to_images
 from utils.prediction import add_rects_with_pred_on_image
 
 COLOR_SETS = True
-
-# dataset = load_dataset(path=DATASET_PATH, hog_params=HOG_PARAMS, slice_image_shape=OUTPUT_SLICE_IMAGE_SHAPE)
-# model = get_trained_model(
-#         x_train_data=dataset[0],
-#         y_train_data=dataset[1],
-#         model_class=CLASSIFIER_MODEL_CLASS,
-#         model_params=CLASSIFIER_PARAMS,
-#         model_search=CLASSIFIER_SEARCH_BEST_MODEL,
-#         search_params=CLASSIFIER_SEARCH_BEST_MODEL_PARAMS
-#     )
 
 model = load_model(MODEL_PATH)
 

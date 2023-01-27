@@ -10,16 +10,6 @@ FRAMES_BETWEEN_SAVE = 60
 SAVE_MODE = 0  # 0 - clear, 1 - rects, 2 - rects with pred
 
 if SAVE_MODE == 2:
-    # dataset = load_dataset(path=DATASET_PATH, hog_params=HOG_PARAMS, slice_image_shape=OUTPUT_SLICE_IMAGE_SHAPE)
-    # model = get_trained_model(
-    #         x_train_data=dataset[0],
-    #         y_train_data=dataset[1],
-    #         model_class=CLASSIFIER_MODEL_CLASS,
-    #         model_params=CLASSIFIER_PARAMS,
-    #         model_search=CLASSIFIER_SEARCH_BEST_MODEL,
-    #         search_params=CLASSIFIER_SEARCH_BEST_MODEL_PARAMS
-    #     )
-
     model = load_model(MODEL_PATH)
 
 file_name = 0
