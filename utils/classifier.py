@@ -2,6 +2,7 @@ from os import listdir, cpu_count
 from os.path import join
 from time import time
 from typing import Optional, Iterable
+from pickle import dump, load
 
 import numpy as np
 import pandas as pd
@@ -16,7 +17,6 @@ from sklearn.ensemble import RandomForestClassifier
 from sklearn.metrics import confusion_matrix, balanced_accuracy_score, precision_recall_fscore_support, \
     classification_report
 from sklearn.model_selection import GridSearchCV
-
 
 __CPUS = cpu_count()
 pd.set_option('display.max_rows', None)
@@ -101,8 +101,8 @@ def load_dataset(
     x_train_data, y_train_data = __read_images_from_path(path=join(path, 'train'), slice_image_shape=slice_image_shape)
     x_test_data, y_test_data = __read_images_from_path(path=join(path, 'test'), slice_image_shape=slice_image_shape)
 
-    return get_hog_descriptors(images=x_train_data, hog_params=hog_params), y_train_data,\
-        get_hog_descriptors(images=x_test_data, hog_params=hog_params), y_test_data
+    return get_hog_descriptors(images=x_train_data, hog_params=hog_params), y_train_data, \
+           get_hog_descriptors(images=x_test_data, hog_params=hog_params), y_test_data
 
 
 def get_trained_model(
@@ -127,6 +127,17 @@ def get_trained_model(
         model_obj = model_class(**dict(__get_model_basic_config(model_class).items()), **dict(model_params.items()))
         _ = model_obj.fit(x_train_data, y_train_data)
         return model_obj
+
+
+def save_model(model: object, path: str) -> None:
+    with open(path, 'wb') as f:
+        dump(model, f)
+
+
+def load_model(path: str) -> object:
+    with open(path, 'rb') as f:
+        model = load(f)
+    return model
 
 
 def evaluate_model(model: object, x_test: np.ndarray, y_test: np.ndarray, show_details: bool = False) -> None:
