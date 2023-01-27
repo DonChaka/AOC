@@ -8,6 +8,8 @@ HOME_PATH_TEST = join('Images', 'RoadImages', 'test')
 
 DATASET_PATH = join('Images', 'polishDataset')
 
+MODEL_PATH = join('models', 'trained_svm_model.pickle')
+
 OUTPUT_SOURCE_IMAGE_SHAPE = (900, 1200, 3)
 OUTPUT_SLICE_IMAGE_SHAPE = (40, 40, 3)
 
