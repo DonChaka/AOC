@@ -51,8 +51,11 @@ def __get_edges_per_channel(seg_images: dict, low_thresh: int = 50, high_thresh:
 
 def __find_contours(edges: np.ndarray) -> list:
     red_contours, red_hierarchy = cv2.findContours(edges, cv2.RETR_TREE, cv2.CHAIN_APPROX_NONE)
-    return [red_contours[i] for i, element in enumerate(red_hierarchy[0]) if element[3] == -1]
 
+    if red_hierarchy is not None:
+        return [red_contours[i] for i, element in enumerate(red_hierarchy[0]) if element[3] == -1]
+
+    return []
 
 def __find_contours_per_channel(all_edges: dict) -> dict:
     return {
